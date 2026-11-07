@@ -52,7 +52,9 @@ var ORIGEM_OK=/^https:\/\/[a-z0-9-]+-script\.googleusercontent\.com$/,ORIGEM_APP
 function doApp(w){try{for(var i=0;i<6&&w;i++){if(w===APP.contentWindow)return true;if(w===w.parent)return false;w=w.parent}}catch(x){}return false}
 window.addEventListener('message',function(e){var d=e.data;if(!d||typeof d!=='object')return;if(!ORIGEM_OK.test(e.origin)||!doApp(e.source))return;ORIGEM_APP=e.origin;
   if(d.t==='lx-casca-ok'){window.__lxAck=(window.__lxAck||0)+1;return}
-  if(d.t==='lx-ola'){responde(e.source,{t:'lx-casca',v:2,bt:!!navigator.bluetooth,impressora:!!(dev&&dev.gatt.connected)});return}
+  if(d.t==='lx-ola'){var lk='';try{lk=localStorage.getItem('lx_lk')||''}catch(x){}responde(e.source,{t:'lx-casca',v:3,lk:lk,bt:!!navigator.bluetooth,impressora:!!(dev&&dev.gatt.connected)});return}
+  /* chave deste aparelho (liberado com senha): guardada aqui porque o quadro do Google pode perder o que guarda */
+  if(d.t==='lx-lk'&&typeof d.lk==='string'&&d.lk.length<80){try{localStorage.setItem('lx_lk',d.lk)}catch(x){}return}
   if(d.t==='lx-print'&&d.bytes){var b=new Uint8Array(d.bytes),src=e.source;
     /* o toque foi no app (dentro do quadro); o Chrome conta esse toque também para esta página, por alguns segundos */
     fila=fila.then(function(){return imprimir(b,d.n||1,src,d.id)});return}
