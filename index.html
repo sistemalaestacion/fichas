@@ -47,6 +47,7 @@ async function imprimir(bytes,n,src,id){
     msg(nf?'Nenhuma impressora escolhida.':'Não imprimiu: '+(e&&e.message||e),'err',7000);responde(src,{t:'lx-printed',id:id,ok:false,err:nf?'cancelado':String(e&&e.message||e)})}}
 function responde(src,o){try{src&&src.postMessage(o,'*')}catch(e){}}
 window.addEventListener('message',function(e){var d=e.data;if(!d||typeof d!=='object')return;
+  if(d.t==='lx-casca-ok'){window.__lxAck=(window.__lxAck||0)+1;return}
   if(d.t==='lx-ola'){responde(e.source,{t:'lx-casca',v:1,bt:!!navigator.bluetooth,impressora:!!(dev&&dev.gatt.connected)});return}
   if(d.t==='lx-print'&&d.bytes){var b=new Uint8Array(d.bytes),src=e.source;
     /* o toque foi no app (dentro do quadro); o Chrome conta esse toque também para esta página, por alguns segundos */
