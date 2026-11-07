@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#7E1218">
+<title>Fichas La Estación</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<style>
+  html,body{margin:0;height:100%;background:#F2EBD9;overflow:hidden}
+  #app{position:fixed;inset:0;width:100%;height:100%;border:0;display:block}
+  #msg{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);z-index:10;max-width:90vw;padding:12px 18px;border-radius:12px;
+    background:#2B2320;color:#fff;font:600 16px system-ui,sans-serif;box-shadow:0 4px 16px rgba(0,0,0,.25);display:none;text-align:center}
+  #msg.ok{background:#1F7A3A}#msg.err{background:#A3271C}
+</style>
+</head>
+<body>
+<iframe id="app" src="https://script.google.com/macros/s/AKfycbxY1Uo3rvoPIuI-Cbc9b15igQAbNiwwgCYHVg0XZTQ2Ilkh4sZQH-5te9z7t0bAoWqiVw/exec"
+  allow="bluetooth; fullscreen; clipboard-write" title="Fichas La Estación"></iframe>
+<div id="msg" role="status"></div>
+<script>
+/* Casca do sistema Fichas La Estación.
+   - Abre o app (Google Apps Script) em tela cheia quando instalada pelo Chrome.
+   - Fala com a impressora Bluetooth: o app manda a etiqueta pronta (bytes) e a casca imprime.
+     A impressora é escolhida uma vez e fica lembrada enquanto a casca estiver aberta. */
+(function(){
+var APP=document.getElementById('app'),M=document.getElementById('msg'),tm=null;
+function msg(t,cls,ms){M.textContent=t;M.className=cls||'';M.style.display='block';clearTimeout(tm);if(ms!==0)tm=setTimeout(function(){M.style.display='none'},ms||4000)}
+var SV=["000018f0-0000-1000-8000-00805f9b34fb","e7810a71-73ae-499d-8c15-faa9aef0c3f2","49535343-fe7d-4ae5-8fa9-9fafd205e455","0000ff00-0000-1000-8000-00805f9b34fb","0000ffe0-0000-1000-8000-00805f9b34fb","0000fee7-0000-1000-8000-00805f9b34fb","0000ae30-0000-1000-8000-00805f9b34fb","0000af30-0000-1000-8000-00805f9b34fb","0000ff10-0000-1000-8000-00805f9b34fb"];
+var dev=null,ch=null,fila=Promise.resolve();
+async function conectar(){
+  if(ch&&dev&&dev.gatt.connected)return ch;
+  if(!dev){dev=await navigator.bluetooth.requestDevice({acceptAllDevices:true,optionalServices:SV})}
+  msg('Conectando na impressora…','',0);
+  var sv=await dev.gatt.connect();ch=null;
+  var ss=await sv.getPrimaryServices();
+  for(var i=0;i<ss.length&&!ch;i++){var cs=await ss[i].getCharacteristics();for(var j=0;j<cs.length;j++){if(cs[j].properties.writeWithoutResponse||cs[j].properties.write){ch=cs[j];break}}}
+  if(!ch)throw new Error('a impressora não aceitou dados');return ch}
+async function enviar(bytes){var wr=ch.properties.writeWithoutResponse&&ch.writeValueWithoutResponse,N=wr?180:100;
+  for(var k=0;k<bytes.length;k+=N){var part=bytes.slice(k,k+N);if(wr){await ch.writeValueWithoutResponse(part);if(k%(N*20)===0)await new Promise(function(r){setTimeout(r,20)})}else await ch.writeValue(part)}}
+async function imprimir(bytes,n,src,id){
+  try{if(!navigator.bluetooth)throw new Error('este navegador não tem Bluetooth');
+    await conectar();msg('🖨 Imprimindo… aguarde: a etiqueta leva de 5 a 7 segundos para sair.','',0);await enviar(bytes);
+    msg('✓ Enviado'+(n>1?' ('+n+' cópias)':'')+'. Aguarde a etiqueta sair.','ok',7000);responde(src,{t:'lx-printed',id:id,ok:true})}
+  catch(e){console.error(e);var nf=e&&e.name==='NotFoundError';if(!nf){ch=null;if(dev&&!dev.gatt.connected){}}
+    msg(nf?'Nenhuma impressora escolhida.':'Não imprimiu: '+(e&&e.message||e),'err',7000);responde(src,{t:'lx-printed',id:id,ok:false,err:nf?'cancelado':String(e&&e.message||e)})}}
+function responde(src,o){try{src&&src.postMessage(o,'*')}catch(e){}}
+window.addEventListener('message',function(e){var d=e.data;if(!d||typeof d!=='object')return;
+  if(d.t==='lx-ola'){responde(e.source,{t:'lx-casca',v:1,bt:!!navigator.bluetooth,impressora:!!(dev&&dev.gatt.connected)});return}
+  if(d.t==='lx-print'&&d.bytes){var b=new Uint8Array(d.bytes),src=e.source;
+    /* o toque foi no app (dentro do quadro); o Chrome conta esse toque também para esta página, por alguns segundos */
+    fila=fila.then(function(){return imprimir(b,d.n||1,src,d.id)});return}
+  if(d.t==='lx-trocar-impressora'){dev=null;ch=null;msg('Na próxima etiqueta, escolha a impressora.','',4000);return}
+  if(d.t==='lx-reload'){APP.src=APP.src;return}
+});
+if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').catch(function(){})}
+})();
+</script>
+</body>
+</html>
